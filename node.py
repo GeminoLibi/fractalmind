@@ -48,20 +48,25 @@ class FractalNode:
     def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
         subnet = ".".join(local_ip.split(".")[:-1]) + "."
+        port_range = range(5000, 5011)  # Scan 5000-5010
         while self.running:
             for i in range(1, 255):
                 ip = f"{subnet}{i}"
-                if ip != local_ip and ip not in self.peers:
-                    try:
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.settimeout(0.1)
-                            if s.connect_ex((ip, self.port)) == 0:
-                                print(f"Found peer: {ip} on port {self.port}")
-                                self.peers.add(ip)
-                                self.share_packet("SYNC_REQUEST", ip)
-                                time.sleep(0.5)
-                    except:
-                        pass
+                if ip != local_ip:
+                    for port in port_range:
+                        if port != self.port:  # Skip own port
+                            try:
+                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                    s.settimeout(0.1)
+                                    if s.connect_ex((ip, port)) == 0:
+                                        peer = f"{ip}:{port}"
+                                        if peer not in self.peers:
+                                            print(f"Found peer: {peer}")
+                                            self.peers.add(peer)
+                                            self.share_packet("SYNC_REQUEST", ip, port)
+                                            time.sleep(0.5)
+                            except:
+                                pass
             time.sleep(10)
 
     def process_packet(self, packet, sender, conn=None):
@@ -113,17 +118,19 @@ class FractalNode:
             return
         if packet == "SYNC_REQUEST":
             if conn:
-                if sender not in self.peers:
-                    print(f"Adding peer from SYNC_REQUEST: {sender}")
-                    self.peers.add(sender)
+                sender_ip_port = f"{sender}:{self.port}"
+                if sender_ip_port not in self.peers:
+                    print(f"Adding peer from SYNC_REQUEST: {sender_ip_port}")
+                    self.peers.add(sender_ip_port)
                 for name, (packed, _, hash_id) in self.data_store.items():
                     self.share_packet(packed, sender)
             return
         if packet == "SYNC":
             if conn:
                 peers_copy = self.peers.copy()
-                for peer_ip in peers_copy:
-                    self.share_packet("SYNC_REQUEST", peer_ip)
+                for peer in peers_copy:
+                    ip, port = peer.split(":")
+                    self.share_packet("SYNC_REQUEST", ip, int(port))
                 conn.send("Sync triggered with peers.".encode())
             return
         parts = packet.split("#", 2)
@@ -134,14 +141,18 @@ class FractalNode:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
 
-    def share_packet(self, packet, specific_peer=None):
-        target_peers = [specific_peer] if specific_peer else self.peers
-        for peer_ip in target_peers:
-            if peer_ip:
+    def share_packet(self, packet, specific_ip=None, specific_port=None):
+        if specific_ip and specific_port:
+            target_peers = [f"{specific_ip}:{specific_port}"]
+        else:
+            target_peers = self.peers
+        for peer in target_peers:
+            if peer:
+                ip, port = peer.split(":")
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.settimeout(1)
-                        s.connect((peer_ip, self.port))
+                        s.connect((ip, int(port)))
                         s.send(packet.encode())
                 except:
                     pass
