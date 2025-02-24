@@ -51,11 +51,11 @@ class FractalNode:
                         pass
             # Bluetooth discovery commented out per your setup
             time.sleep(60)
-            
+
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
-                conn.send("ADD <text> <metadata> | GET <hash> | LIST | STOP".encode())
+                conn.send("ADD \"text\" \"metadata\" | GET <hash> | LIST | STOP".encode())
             return
         if packet == "LIST":
             if conn:
@@ -73,11 +73,12 @@ class FractalNode:
             return
         if packet.startswith("ADD "):
             try:
-                # Parse ADD "text" "metadata" with quotes
-                cmd_parts = packet.split('"')
-                if len(cmd_parts) >= 5:  # Expect: ADD, "text", space, "metadata", rest
-                    text = cmd_parts[1].strip()
-                    metadata = cmd_parts[3].strip()
+                # Parse ADD "text" "metadata" with flexible spacing
+                cmd = packet[4:].strip()  # Remove "ADD "
+                if cmd.startswith('"') and '" "' in cmd:
+                    text_part, meta_part = cmd.split('" "', 1)
+                    text = text_part.strip('"')
+                    metadata = meta_part.strip('"')
                     if text and metadata:
                         hash_id = self.add_data(text, metadata)
                         if conn:
@@ -88,7 +89,7 @@ class FractalNode:
                     raise ValueError
             except:
                 if conn:
-                    conn.send("Error: Invalid ADD format. Use ADD \"text\" \"metadata\" (with quotes)".encode())
+                    conn.send("Error: Use ADD \"text\" \"metadata\" (quotes required)".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
