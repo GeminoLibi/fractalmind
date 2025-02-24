@@ -1,9 +1,9 @@
 # FractalMind
 
-Decentralized learning network—fractal-powered, peer-to-peer.
+A decentralized, fractal-powered knowledge network.
 
 ## Why?
-FractalMind breaks knowledge barriers—education, tools, solutions—sharing anywhere, no central control. Phones, laptops—any device joins, spreads wisdom, offline or on.
+FractalMind frees knowledge—education, tools, solutions—across any device, anywhere. No servers, just peers—online or off, low-power, unstoppable.
 
 ## Setup
 - **Requirements**: Python 3.x, `pybluez` (`pip install pybluez` for Bluetooth)
@@ -20,12 +20,12 @@ FractalMind breaks knowledge barriers—education, tools, solutions—sharing an
   - `LIST`: List data—hash and metadata.
   - `STOP`: Shut down.
 - **GUI**: Type commands, click "Run", see output—same as CLI.
-- **Multi-Node**: Run on multiple devices—auto-connects via LAN/Bluetooth.
+- **Multi-Node**: Run on devices—LAN/Bluetooth auto-connects.
 
 ## Features
-- **Fractal Compression**: Adaptive, tiny packets—runs on low power.
-- **P2P**: TCP + Bluetooth—online or off, scales infinitely.
-- **Lessons**: Math, farming, emergency, science, health, code—add more!
+- **Fractal Compression**: Adaptive, pattern-based—tiny, efficient packets.
+- **P2P**: TCP + Bluetooth—resilient, offline-ready, infinite scale.
+- **Lessons**: Math, farming, emergency, science, health, code, culture—pre-loaded, expandable.
 
 ## Impact
-Knowledge free—slums learn coding, farms thrive, crises get solved. World-changing, device by device.
+Knowledge everywhere—slums code, farms thrive, crises solve. World shifted, peer by peer.
