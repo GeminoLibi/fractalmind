@@ -43,25 +43,27 @@ def fractal_decompress(compressed, chunk_dict):
 def pack_packet(compressed, chunk_dict, metadata):
     dict_str = "#DICT#" + ";".join(f"{k}:{v}" for k, v in chunk_dict.items())
     seq_str = "#SEQ#" + "|".join(f"{c[0]},{c[1]}" for c in compressed)
-    packet = f"{dict_str}{seq_str}#{metadata}"
+    meta_str = f"#META#{metadata}"
+    packet = f"{dict_str}{seq_str}{meta_str}"
     return base64.b64encode(packet.encode()).decode()
 
 def unpack_packet(packed):
     try:
         decoded = base64.b64decode(packed).decode()
-        parts = decoded.split("#", 3)
-        if len(parts) != 4 or parts[0] != "" or parts[1] != "DICT" or parts[2] != "SEQ":
+        if "#DICT#" not in decoded or "#SEQ#" not in decoded or "#META#" not in decoded:
             raise ValueError(f"Malformed packet structure: {decoded}")
+        dict_part, rest = decoded.split("#SEQ#", 1)
+        seq_part, meta_part = rest.split("#META#", 1)
         chunk_dict = {}
-        dict_items = parts[1][5:].split(";")  # Skip #DICT#
+        dict_items = dict_part[5:].split(";")  # Skip #DICT#
         for item in dict_items:
             if ":" not in item:
                 raise ValueError(f"Invalid dict entry: {item}")
             k, v = item.split(":", 1)
             chunk_dict[int(k)] = v
-        seq_items = parts[2][5:].split("|")  # Skip #SEQ#
+        seq_items = seq_part.split("|")
         compressed = [(int(c.split(",")[0]), int(c.split(",")[1])) for c in seq_items]
-        metadata = parts[3]
+        metadata = meta_part
         return compressed, chunk_dict, metadata
     except Exception as e:
         raise ValueError(f"Failed to unpack packet: {e} - Raw packet: {packed}")
