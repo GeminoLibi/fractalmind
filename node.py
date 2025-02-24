@@ -2,7 +2,7 @@
 import socket
 import threading
 import time
-import bluetooth
+# import bluetooth
 from fractal import fractal_hash, pack_packet, unpack_packet
 
 class FractalNode:
