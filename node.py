@@ -29,7 +29,7 @@ class FractalNode:
     def start(self):
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
-        self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse port
+        self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
         self.peer_thread = threading.Thread(target=self.discover_peers, daemon=True)
@@ -57,14 +57,16 @@ class FractalNode:
                             if s.connect_ex((ip, self.port)) == 0:
                                 self.peers.add(ip)
                                 self.share_packet("SYNC_REQUEST", ip)
+                                # Wait briefly for response
+                                time.sleep(0.5)
                     except:
                         pass
-            time.sleep(10)  # 10s sync cycle
+            time.sleep(10)
 
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
-                conn.send("ADD <name> <text> | GET <name/hash> | LIST | STOP".encode())
+                conn.send("ADD <name> <text> | GET <name/hash> | LIST | SYNC | STOP".encode())
             return
         if packet == "LIST":
             if conn:
@@ -106,9 +108,16 @@ class FractalNode:
         if packet == "SYNC_REQUEST":
             if conn and sender not in self.peers:
                 self.peers.add(sender)
-                # Send full store as SYNC_RESPONSE
+                # Send full store back as response
                 for name, (packed, _, hash_id) in self.data_store.items():
                     self.share_packet(packed, sender)
+                conn.send("SYNC_RESPONSE".encode())
+            return
+        if packet == "SYNC":
+            if conn:
+                for peer_ip in self.peers:
+                    self.share_packet("SYNC_REQUEST", peer_ip)
+                conn.send("Sync triggered with peers.".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
@@ -149,6 +158,6 @@ class FractalNode:
         if self.server:
             self.server.shutdown()
             self.server.server_close()
-            self.server_thread.join(timeout=5)  # Wait 5s for server thread
-        self.peer_thread.join(timeout=5)  # Wait 5s for peer thread
+            self.server_thread.join(timeout=5)
+        self.peer_thread.join(timeout=5)
         self.save_store()
