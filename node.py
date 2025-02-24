@@ -2,7 +2,7 @@
 import socketserver
 import threading
 import time
-import bluetooth
+#import bluetooth
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
 
 class FractalRequestHandler(socketserver.BaseRequestHandler):
