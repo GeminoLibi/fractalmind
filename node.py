@@ -1,9 +1,15 @@
 # node.py
-import socket
+import socketserver
 import threading
 import time
-#import bluetooth
+import bluetooth
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
+
+class FractalRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        data = self.request.recv(4096).decode()
+        if data:
+            self.server.node.process_packet(data, self.client_address[0], self.request)
 
 class FractalNode:
     def __init__(self, node_id, port=5000, bt_port=1):
@@ -14,27 +20,13 @@ class FractalNode:
         self.peers = set()
         self.bt_peers = set()
         self.running = True
-        self.server_socket = None
+        self.server = None
 
     def start(self):
-        threading.Thread(target=self.listen_tcp, daemon=True).start()
+        self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
+        self.server.node = self
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
         threading.Thread(target=self.discover_peers, daemon=True).start()
-
-    def listen_tcp(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket = s
-        s.bind(('0.0.0.0', self.port))
-        s.listen()
-        while self.running:
-            try:
-                conn, addr = s.accept()
-                with conn:
-                    data = conn.recv(4096).decode()
-                    if data:
-                        self.process_packet(data, addr[0], conn)
-            except:
-                pass
-        s.close()  # Free the port on stop
 
     def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
@@ -125,5 +117,6 @@ class FractalNode:
 
     def stop(self):
         self.running = False
-        if self.server_socket:
-            self.server_socket.close()
+        if self.server:
+            self.server.shutdown()
+            self.server.server_close()
