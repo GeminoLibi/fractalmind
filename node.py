@@ -48,6 +48,8 @@ class FractalNode:
     def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
         subnet = ".".join(local_ip.split(".")[:-1]) + "."
+        if subnet.startswith("127."):  # Fallback for localhost testing
+            subnet = "192.168.1."  # Adjust to your real subnet if needed
         port_range = range(5000, 5011)  # Scan 5000-5010
         while self.running:
             for i in range(1, 255):
@@ -122,8 +124,11 @@ class FractalNode:
                 if sender_ip_port not in self.peers:
                     print(f"Adding peer from SYNC_REQUEST: {sender_ip_port}")
                     self.peers.add(sender_ip_port)
+                peers_copy = self.peers.copy()
                 for name, (packed, _, hash_id) in self.data_store.items():
-                    self.share_packet(packed, sender)
+                    for peer in peers_copy:
+                        ip, port = peer.split(":")
+                        self.share_packet(packed, ip, int(port))
             return
         if packet == "SYNC":
             if conn:
@@ -139,13 +144,16 @@ class FractalNode:
             if not any(h == hash_id for _, _, h in self.data_store.values()):
                 print(f"Syncing lesson: {metadata} from {sender}")
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
-                self.share_packet(packed_data)
+                peers_copy = self.peers.copy()
+                for peer in peers_copy:
+                    ip, port = peer.split(":")
+                    self.share_packet(packed_data, ip, int(port))
 
     def share_packet(self, packet, specific_ip=None, specific_port=None):
         if specific_ip and specific_port:
             target_peers = [f"{specific_ip}:{specific_port}"]
         else:
-            target_peers = self.peers
+            target_peers = self.peers.copy()  # Safe iteration
         for peer in target_peers:
             if peer:
                 ip, port = peer.split(":")
