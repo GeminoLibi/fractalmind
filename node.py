@@ -51,16 +51,37 @@ class FractalNode:
                         pass
             # Bluetooth discovery commented out per your setup
             time.sleep(60)
-
+            
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
                 conn.send("ADD <text> <metadata> | GET <hash> | LIST | STOP".encode())
-            return  # Exit early—fast response
+            return
         if packet == "LIST":
             if conn:
                 listing = "\n".join(f"{k}: {v[1]}" for k, v in self.data_store.items()) or "No data yet."
                 conn.send(listing.encode())
+            return
+        if packet.startswith("GET "):
+            if conn:
+                hash_id = packet.split(" ", 1)[1]
+                text, metadata = self.get_data(hash_id)
+                if text:
+                    conn.send(f"{metadata}: {text}".encode())
+                else:
+                    conn.send(f"Error: Hash {hash_id} not found.".encode())
+            return
+        if packet.startswith("ADD "):
+            try:
+                parts = packet.split(" ", 2)
+                if len(parts) == 3:
+                    _, text, metadata = parts
+                    hash_id = self.add_data(text, metadata)
+                    if conn:
+                        conn.send(f"Added: {hash_id}".encode())
+            except:
+                if conn:
+                    conn.send("Error: Invalid ADD format. Use ADD <text> <metadata>".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
