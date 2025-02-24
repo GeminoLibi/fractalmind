@@ -4,32 +4,14 @@ import socket
 
 def run_cli(node):
     print(f"FractalMind node started on port {node.port}. Type 'HELP' for commands.")
-    state = "start"  # Track CLI state: start, add_name, add_data
-    lesson_name = None
     while True:
         cmd = input("> ").strip()
         if cmd == "STOP":
             node.stop()
             print("Node stopped.")
             break
-        if state == "start":
-            if cmd == "ADD":
-                state = "add_name"
-                response = send_command(node, cmd)
-                print(response)
-            else:
-                response = send_command(node, cmd)
-                print(response)
-        elif state == "add_name":
-            response = send_command(node, f"NAME \"{cmd}\"")
-            lesson_name = cmd
-            state = "add_data"
-            print(response)
-        elif state == "add_data":
-            response = send_command(node, f"DATA \"{lesson_name}:{cmd}\"")
-            state = "start"
-            lesson_name = None
-            print(response)
+        response = send_command(node, cmd)
+        print(response)
 
 def run_gui(node):
     root = tk.Tk()
@@ -61,10 +43,7 @@ def send_command(node, command):
         try:
             s.connect((local_ip, node.port))
             s.send(command.encode())
-            try:
-                response = s.recv(4096).decode()
-                return response if response else "No response—check command syntax."
-            except socket.timeout:
-                return "Timeout—node may be busy."
+            response = s.recv(4096)
+            return response.decode() if response else "No response—check command syntax."
         except:
-            return "Error: Node busy or not responding."
+            return "Error: Node busy or not responding—try a different port (e.g., 5001)."
