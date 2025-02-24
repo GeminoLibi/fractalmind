@@ -43,7 +43,7 @@ class FractalNode:
                     except:
                         pass
             time.sleep(60)
-
+            
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
@@ -59,9 +59,12 @@ class FractalNode:
                 name_or_hash = packet.split(" ", 1)[1].strip('"')
                 for name, (packed, metadata, hash_id) in self.data_store.items():
                     if name == name_or_hash or hash_id == name_or_hash:
-                        compressed, chunk_dict, _ = unpack_packet(packed)
-                        text = fractal_decompress(compressed, chunk_dict)
-                        conn.send(f"{name}: {text}".encode())
+                        try:
+                            compressed, chunk_dict, _ = unpack_packet(packed)
+                            text = fractal_decompress(compressed, chunk_dict)
+                            conn.send(f"{name}: {text}".encode())
+                        except ValueError as e:
+                            conn.send(f"Error unpacking {name}: {str(e)}".encode())
                         return
                 conn.send(f"Error: {name_or_hash} not found.".encode())
             return
@@ -89,7 +92,7 @@ class FractalNode:
             if metadata not in self.data_store:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packet)
-
+                
     def share_packet(self, packet):
         for peer_ip in self.peers:
             try:
