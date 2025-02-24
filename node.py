@@ -2,7 +2,8 @@
 import socketserver
 import threading
 import time
-#import bluetooth
+import pickle
+import os
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
 
 class FractalRequestHandler(socketserver.BaseRequestHandler):
@@ -21,29 +22,43 @@ class FractalNode:
         self.bt_peers = set()
         self.running = True
         self.server = None
+        self.store_file = f"fractalmind_store_{port}.pkl"
+        self.load_store()
 
     def start(self):
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        #threading.Thread(target=self.discover_peers, daemon=True).start()
+        threading.Thread(target=self.discover_peers, daemon=True).start()
 
-#def discover_peers(self):
-     #   local_ip = socket.gethostbyname(socket.gethostname())
-     #   subnet = ".".join(local_ip.split(".")[:-1]) + "."
-     #   while self.running:
-      #      for i in range(1, 255):
-          #      ip = f"{subnet}{i}"
-          #      if ip != local_ip:
-               #     try:
-                    #    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                     #       s.settimeout(0.1)
-                         #   if s.connect_ex((ip, self.port)) == 0:
-                              #  self.peers.add(ip)
-             #       except:
-             #           pass
-        #    time.sleep(60)
-        
+    def load_store(self):
+        if os.path.exists(self.store_file):
+            with open(self.store_file, 'rb') as f:
+                self.data_store = pickle.load(f)
+
+    def save_store(self):
+        with open(self.store_file, 'wb') as f:
+            pickle.dump(self.data_store, f)
+
+    def discover_peers(self):
+        local_ip = socket.gethostbyname(socket.gethostname())
+        subnet = ".".join(local_ip.split(".")[:-1]) + "."
+        while self.running:
+            for i in range(1, 255):
+                ip = f"{subnet}{i}"
+                if ip != local_ip and ip not in self.peers:
+                    try:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(0.1)
+                            if s.connect_ex((ip, self.port)) == 0:
+                                self.peers.add(ip)
+                                # Sync store with new peer
+                                for name, (packed, _, hash_id) in self.data_store.items():
+                                    self.share_packet(packed, ip)
+                    except:
+                        pass
+            time.sleep(60)
+
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
@@ -93,16 +108,9 @@ class FractalNode:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
 
-    def add_data(self, text, metadata=""):
-        compressed, chunk_dict = fractal_compress(text)
-        hash_id = cogito_hash(text)
-        packed = pack_packet(compressed, chunk_dict, metadata)
-        self.data_store[metadata] = (packed, metadata, hash_id)
-        self.share_packet(packed)
-        return hash_id
-        
-    def share_packet(self, packet):
-        for peer_ip in self.peers:
+    def share_packet(self, packet, specific_peer=None):
+        target_peers = [specific_peer] if specific_peer else self.peers
+        for peer_ip in target_peers:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(1)
@@ -114,9 +122,9 @@ class FractalNode:
     def add_data(self, text, metadata=""):
         compressed, chunk_dict = fractal_compress(text)
         hash_id = cogito_hash(text)
-        packet = pack_packet(compressed, chunk_dict, metadata)
-        self.data_store[metadata] = (packet, metadata, hash_id)
-        self.share_packet(packet)
+        packed = pack_packet(compressed, chunk_dict, metadata)
+        self.data_store[metadata] = (packed, metadata, hash_id)
+        self.share_packet(packed)
         return hash_id
 
     def get_data(self, name_or_hash):
@@ -131,3 +139,4 @@ class FractalNode:
         if self.server:
             self.server.shutdown()
             self.server.server_close()
+        self.save_store()
