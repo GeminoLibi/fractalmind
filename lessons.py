@@ -1,5 +1,5 @@
 # lessons.py
-from fractal import fractal_compress, pack_packet, fractal_hash
+from fractal import fractal_compress, pack_packet, cogito_hash
 
 def load_initial_lessons(node):
     """Load pre-encoded lessons."""
@@ -15,7 +15,7 @@ def load_initial_lessons(node):
     for text, metadata in lessons:
         compressed, chunk_dict = fractal_compress(text)
         packet = pack_packet(compressed, chunk_dict, metadata)
-        hash_id = fractal_hash(text)
+        hash_id = cogito_hash(text)
         node.data_store[hash_id] = (packet, metadata)
         node.share_packet(packet)
         print(f"Loaded {metadata}: {hash_id}")
