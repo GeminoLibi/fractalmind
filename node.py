@@ -5,6 +5,7 @@ import time
 import pickle
 import os
 import socket
+import sys
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
 
 class FractalRequestHandler(socketserver.BaseRequestHandler):
@@ -57,7 +58,6 @@ class FractalNode:
                             if s.connect_ex((ip, self.port)) == 0:
                                 self.peers.add(ip)
                                 self.share_packet("SYNC_REQUEST", ip)
-                                # Wait briefly for response
                                 time.sleep(0.5)
                     except:
                         pass
@@ -106,23 +106,24 @@ class FractalNode:
                     conn.send(f"Error: Invalid ADD format - {str(e)}".encode())
             return
         if packet == "SYNC_REQUEST":
-            if conn and sender not in self.peers:
-                self.peers.add(sender)
-                # Send full store back as response
+            if conn:
+                if sender not in self.peers:
+                    self.peers.add(sender)
+                # Send full store back
                 for name, (packed, _, hash_id) in self.data_store.items():
                     self.share_packet(packed, sender)
-                conn.send("SYNC_RESPONSE".encode())
             return
         if packet == "SYNC":
             if conn:
-                for peer_ip in self.peers:
+                peers_copy = self.peers.copy()  # Safe iteration
+                for peer_ip in peers_copy:
                     self.share_packet("SYNC_REQUEST", peer_ip)
                 conn.send("Sync triggered with peers.".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
-            if metadata not in self.data_store:
+            if metadata not in self.data_store:  # Dedupe by metadata
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
 
@@ -161,3 +162,6 @@ class FractalNode:
             self.server_thread.join(timeout=5)
         self.peer_thread.join(timeout=5)
         self.save_store()
+        # Force exit if threads linger
+        if self.server_thread.is_alive() or self.peer_thread.is_alive():
+            os._exit(0)
