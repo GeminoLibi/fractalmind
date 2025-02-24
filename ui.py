@@ -4,19 +4,32 @@ import socket
 
 def run_cli(node):
     print(f"FractalMind node started on port {node.port}. Type 'HELP' for commands.")
-    last_cmd = None
+    state = "start"  # Track CLI state: start, add_name, add_data
+    lesson_name = None
     while True:
         cmd = input("> ").strip()
         if cmd == "STOP":
             node.stop()
             print("Node stopped.")
             break
-        response = send_command(node, cmd, last_cmd)
-        print(response)
-        if cmd.startswith("ADD ") or cmd.startswith("NAME "):
-            last_cmd = cmd
-        else:
-            last_cmd = None
+        if state == "start":
+            if cmd == "ADD":
+                state = "add_name"
+                response = send_command(node, cmd)
+                print(response)
+            else:
+                response = send_command(node, cmd)
+                print(response)
+        elif state == "add_name":
+            response = send_command(node, f"NAME \"{cmd}\"")
+            lesson_name = cmd
+            state = "add_data"
+            print(response)
+        elif state == "add_data":
+            response = send_command(node, f"DATA \"{lesson_name}:{cmd}\"")
+            state = "start"
+            lesson_name = None
+            print(response)
 
 def run_gui(node):
     root = tk.Tk()
@@ -40,19 +53,18 @@ def run_gui(node):
     
     root.mainloop()
 
-def send_command(node, command, last_cmd=None):
+def send_command(node, command):
+    """Send command to node and get response."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(5)
         local_ip = socket.gethostbyname(socket.gethostname())
         try:
             s.connect((local_ip, node.port))
-            if last_cmd and last_cmd.startswith("ADD "):
-                command = f"NAME \"{command}\""
-            elif last_cmd and last_cmd.startswith("NAME "):
-                name = last_cmd.split(" ", 1)[1].strip('"')
-                command = f"DATA \"{name}:{command}\""
             s.send(command.encode())
-            response = s.recv(4096).decode()
-            return response if response else "No response—check command syntax."
+            try:
+                response = s.recv(4096).decode()
+                return response if response else "No response—check command syntax."
+            except socket.timeout:
+                return "Timeout—node may be busy."
         except:
             return "Error: Node busy or not responding."
