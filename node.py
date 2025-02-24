@@ -56,7 +56,7 @@ class FractalNode:
         if packet == "HELP":
             if conn:
                 conn.send("ADD <text> <metadata> | GET <hash> | LIST | STOP".encode())
-            return
+            return  # Exit early—fast response
         if packet == "LIST":
             if conn:
                 listing = "\n".join(f"{k}: {v[1]}" for k, v in self.data_store.items()) or "No data yet."
@@ -68,7 +68,7 @@ class FractalNode:
             if hash_id not in self.data_store:
                 self.data_store[hash_id] = (packed_data, metadata)
                 self.share_packet(packet)
-
+                
     def share_packet(self, packet):
         for peer_ip in self.peers:
             try:
