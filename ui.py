@@ -38,11 +38,11 @@ def run_gui(node):
 def send_command(node, command):
     """Send command to node and get response."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(3)  # Bumped to 3s from 1s
+        s.settimeout(5)  # Bumped to 5s
         local_ip = socket.gethostbyname(socket.gethostname())
         try:
             s.connect((local_ip, node.port))
             s.send(command.encode())
-            return s.recv(4096).decode()
+            return s.recv(4096).decode() or "No response—check command."
         except:
             return "Error: Node busy or not responding."
