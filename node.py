@@ -14,24 +14,27 @@ class FractalNode:
         self.peers = set()
         self.bt_peers = set()
         self.running = True
+        self.server_socket = None
 
     def start(self):
         threading.Thread(target=self.listen_tcp, daemon=True).start()
         threading.Thread(target=self.discover_peers, daemon=True).start()
 
     def listen_tcp(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('0.0.0.0', self.port))
-            s.listen()
-            while self.running:
-                try:
-                    conn, addr = s.accept()
-                    with conn:
-                        data = conn.recv(4096).decode()
-                        if data:
-                            self.process_packet(data, addr[0], conn)
-                except:
-                    pass
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket = s
+        s.bind(('0.0.0.0', self.port))
+        s.listen()
+        while self.running:
+            try:
+                conn, addr = s.accept()
+                with conn:
+                    data = conn.recv(4096).decode()
+                    if data:
+                        self.process_packet(data, addr[0], conn)
+            except:
+                pass
+        s.close()  # Free the port on stop
 
     def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
@@ -48,11 +51,11 @@ class FractalNode:
                     except:
                         pass
             time.sleep(60)
-            
+
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
-                conn.send("ADD | GET | LIST | STOP".encode())
+                conn.send("ADD <name> <text> | GET <name/hash> | LIST | STOP".encode())
             return
         if packet == "LIST":
             if conn:
@@ -70,31 +73,23 @@ class FractalNode:
                         return
                 conn.send(f"Error: {name_or_hash} not found.".encode())
             return
-        if packet == "ADD":
-            if conn:
-                conn.send("Enter lesson name:".encode())
-            return
-        if packet.startswith("NAME "):
-            if conn:
-                name = packet.split(" ", 1)[1].strip('"')
-                conn.send(f"Enter lesson data for {name}:".encode())
-            return
-        if packet.startswith("DATA "):
+        if packet.startswith("ADD "):
             try:
                 if conn:
-                    data_part = packet.split(" ", 1)[1].strip('"')
-                    name, text = data_part.split(":", 1)
-                    name = name.strip()
-                    text = text.strip()
-                    compressed, chunk_dict = fractal_compress(text)
-                    hash_id = cogito_hash(text)
-                    packet = pack_packet(compressed, chunk_dict, name)
-                    self.data_store[name] = (packet, name, hash_id)
-                    self.share_packet(packet)
-                    conn.send(f"Added {name}: {hash_id}".encode())
+                    parts = packet.split(" ", 2)
+                    if len(parts) == 3:
+                        _, name, text = parts
+                        compressed, chunk_dict = fractal_compress(text)
+                        hash_id = cogito_hash(text)
+                        packet = pack_packet(compressed, chunk_dict, name)
+                        self.data_store[name] = (packet, name, hash_id)
+                        self.share_packet(packet)
+                        conn.send(f"Added {name}: {hash_id}".encode())
+                    else:
+                        conn.send("Error: Use ADD <name> <text> (e.g., ADD Test Hello)".encode())
             except:
                 if conn:
-                    conn.send("Error: Use DATA \"name:text\" (e.g., DATA \"Test:Hello\")".encode())
+                    conn.send("Error: Invalid ADD format.".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
@@ -102,7 +97,7 @@ class FractalNode:
             if metadata not in self.data_store:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packet)
-                
+
     def share_packet(self, packet):
         for peer_ip in self.peers:
             try:
@@ -130,3 +125,5 @@ class FractalNode:
 
     def stop(self):
         self.running = False
+        if self.server_socket:
+            self.server_socket.close()
