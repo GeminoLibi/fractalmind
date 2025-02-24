@@ -2,7 +2,7 @@
 import socket
 import threading
 import time
-import bluetooth
+#import bluetooth
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
 
 class FractalNode:
@@ -48,7 +48,7 @@ class FractalNode:
                     except:
                         pass
             time.sleep(60)
-
+            
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
@@ -70,7 +70,7 @@ class FractalNode:
                         return
                 conn.send(f"Error: {name_or_hash} not found.".encode())
             return
-        if packet.startswith("ADD "):
+        if packet == "ADD":
             if conn:
                 conn.send("Enter lesson name:".encode())
             return
@@ -102,7 +102,7 @@ class FractalNode:
             if metadata not in self.data_store:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packet)
-
+                
     def share_packet(self, packet):
         for peer_ip in self.peers:
             try:
