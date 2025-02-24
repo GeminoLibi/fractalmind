@@ -3,6 +3,7 @@ import sys
 from node import FractalNode
 from lessons import load_initial_lessons
 from ui import run_cli, run_gui
+from fractal import cogito_hash
 
 def main(port=5000, use_gui=False):
     node = FractalNode(node_id=cogito_hash(str(time.time())), port=port)
