@@ -31,9 +31,9 @@ class FractalNode:
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
         self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=False)  # Non-daemon for clean exit
         self.server_thread.start()
-        self.peer_thread = threading.Thread(target=self.discover_peers, daemon=True)
+        self.peer_thread = threading.Thread(target=self.discover_peers, daemon=False)
         self.peer_thread.start()
 
     def load_store(self):
@@ -115,7 +115,7 @@ class FractalNode:
             return
         if packet == "SYNC":
             if conn:
-                peers_copy = self.peers.copy()  # Safe iteration
+                peers_copy = self.peers.copy()
                 for peer_ip in peers_copy:
                     self.share_packet("SYNC_REQUEST", peer_ip)
                 conn.send("Sync triggered with peers.".encode())
@@ -123,7 +123,8 @@ class FractalNode:
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
-            if metadata not in self.data_store:  # Dedupe by metadata
+            # Dedupe by hash_id, not metadata
+            if not any(h == hash_id for _, _, h in self.data_store.values()):
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
 
