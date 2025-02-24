@@ -17,7 +17,7 @@ class FractalNode:
 
     def start(self):
         threading.Thread(target=self.listen_tcp, daemon=True).start()
-        threading.Thread(target=self.listen_bluetooth, daemon=True).start()
+        # threading.Thread(target=self.listen_bluetooth, daemon=True).start()
         threading.Thread(target=self.discover_peers, daemon=True).start()
 
     def listen_tcp(self):
