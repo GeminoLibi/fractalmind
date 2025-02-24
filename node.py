@@ -3,7 +3,7 @@ import socket
 import threading
 import time
 # import bluetooth
-from fractal import fractal_hash, pack_packet, unpack_packet
+from fractal import cogito_hash, pack_packet, unpack_packet
 
 class FractalNode:
     def __init__(self, node_id, tcp_port=5000, bt_port=1):
@@ -87,7 +87,7 @@ class FractalNode:
             return
         try:
             compressed, chunk_dict, metadata = unpack_packet(packet)
-            hash_id = fractal_hash(fractal_decompress(compressed, chunk_dict))
+            hash_id = cogito_hash(fractal_decompress(compressed, chunk_dict))
             if hash_id not in self.data_store:
                 self.data_store[hash_id] = (packet, metadata)
                 self.share_packet(packet)
@@ -116,7 +116,7 @@ class FractalNode:
     def add_data(self, text, metadata=""):
         compressed, chunk_dict = fractal_compress(text)
         packet = pack_packet(compressed, chunk_dict, metadata)
-        hash_id = fractal_hash(text)
+        hash_id = cogito_hash(text)
         self.data_store[hash_id] = (packet, metadata)
         self.share_packet(packet)
         return hash_id
