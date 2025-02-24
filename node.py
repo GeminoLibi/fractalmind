@@ -64,7 +64,7 @@ class FractalNode:
             return
         if packet.startswith("GET "):
             if conn:
-                hash_id = packet.split(" ", 1)[1]
+                hash_id = packet.split(" ", 1)[1].strip('"')  # Strip quotes
                 text, metadata = self.get_data(hash_id)
                 if text:
                     conn.send(f"{metadata}: {text}".encode())
@@ -73,15 +73,22 @@ class FractalNode:
             return
         if packet.startswith("ADD "):
             try:
-                parts = packet.split(" ", 2)
-                if len(parts) == 3:
-                    _, text, metadata = parts
-                    hash_id = self.add_data(text, metadata)
-                    if conn:
-                        conn.send(f"Added: {hash_id}".encode())
+                # Parse ADD "text" "metadata" with quotes
+                cmd_parts = packet.split('"')
+                if len(cmd_parts) >= 5:  # Expect: ADD, "text", space, "metadata", rest
+                    text = cmd_parts[1].strip()
+                    metadata = cmd_parts[3].strip()
+                    if text and metadata:
+                        hash_id = self.add_data(text, metadata)
+                        if conn:
+                            conn.send(f"Added: {hash_id}".encode())
+                    else:
+                        raise ValueError
+                else:
+                    raise ValueError
             except:
                 if conn:
-                    conn.send("Error: Invalid ADD format. Use ADD <text> <metadata>".encode())
+                    conn.send("Error: Invalid ADD format. Use ADD \"text\" \"metadata\" (with quotes)".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
