@@ -55,14 +55,21 @@ def unpack_packet(packed):
         dict_part, rest = decoded.split("#SEQ#", 1)
         seq_part, meta_part = rest.split("#META#", 1)
         chunk_dict = {}
-        dict_items = dict_part[5:].split(";")  # Skip #DICT#
+        dict_items = dict_part.split("#DICT#", 1)[1].split(";")  # Skip #DICT#
         for item in dict_items:
+            if not item:  # Skip empty
+                continue
             if ":" not in item:
                 raise ValueError(f"Invalid dict entry: {item}")
             k, v = item.split(":", 1)
             chunk_dict[int(k)] = v
         seq_items = seq_part.split("|")
-        compressed = [(int(c.split(",")[0]), int(c.split(",")[1])) for c in seq_items]
+        compressed = []
+        for item in seq_items:
+            if not item:  # Skip empty
+                continue
+            id_str, count_str = item.split(",")
+            compressed.append((int(id_str), int(count_str)))
         metadata = meta_part
         return compressed, chunk_dict, metadata
     except Exception as e:
