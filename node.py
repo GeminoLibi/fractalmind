@@ -26,9 +26,9 @@ class FractalNode:
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        threading.Thread(target=self.discover_peers, daemon=True).start()
+        #threading.Thread(target=self.discover_peers, daemon=True).start()
 
-    def discover_peers(self):
+""""    def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
         subnet = ".".join(local_ip.split(".")[:-1]) + "."
         while self.running:
@@ -43,7 +43,7 @@ class FractalNode:
                     except:
                         pass
             time.sleep(60)
-            
+            """"
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
