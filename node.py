@@ -48,15 +48,29 @@ class FractalNode:
     def discover_peers(self):
         local_ip = socket.gethostbyname(socket.gethostname())
         subnet = ".".join(local_ip.split(".")[:-1]) + "."
-        if subnet.startswith("127."):  # Fallback for localhost testing
-            subnet = "192.168.1."  # Adjust to your real subnet if needed
-        port_range = range(5000, 5011)  # Scan 5000-5010
+        if subnet.startswith("127."):
+            subnet = "192.168.1."  # Adjust to your real subnet
+        port_range = range(5000, 5011)
         while self.running:
+            # Check existing peers
+            peers_copy = self.peers.copy()
+            for peer in peers_copy:
+                ip, port = peer.split(":")
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(0.1)
+                        if s.connect_ex((ip, int(port))) != 0:
+                            print(f"Lost peer: {peer}")
+                            self.peers.remove(peer)
+                except:
+                    print(f"Lost peer: {peer}")
+                    self.peers.remove(peer)
+            # Find new peers
             for i in range(1, 255):
                 ip = f"{subnet}{i}"
                 if ip != local_ip:
                     for port in port_range:
-                        if port != self.port:  # Skip own port
+                        if port != self.port:
                             try:
                                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                                     s.settimeout(0.1)
@@ -126,6 +140,7 @@ class FractalNode:
                     self.peers.add(sender_ip_port)
                 peers_copy = self.peers.copy()
                 for name, (packed, _, hash_id) in self.data_store.items():
+                    print(f"Sending lesson: {name} ({hash_id}) to {sender}")
                     for peer in peers_copy:
                         ip, port = peer.split(":")
                         self.share_packet(packed, ip, int(port))
@@ -142,7 +157,7 @@ class FractalNode:
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
             if not any(h == hash_id for _, _, h in self.data_store.values()):
-                print(f"Syncing lesson: {metadata} from {sender}")
+                print(f"Received lesson: {metadata} ({hash_id}) from {sender}")
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 peers_copy = self.peers.copy()
                 for peer in peers_copy:
@@ -153,7 +168,7 @@ class FractalNode:
         if specific_ip and specific_port:
             target_peers = [f"{specific_ip}:{specific_port}"]
         else:
-            target_peers = self.peers.copy()  # Safe iteration
+            target_peers = self.peers.copy()
         for peer in target_peers:
             if peer:
                 ip, port = peer.split(":")
@@ -162,8 +177,9 @@ class FractalNode:
                         s.settimeout(1)
                         s.connect((ip, int(port)))
                         s.send(packet.encode())
-                except:
-                    pass
+                        print(f"Sent packet to {peer}")
+                except Exception as e:
+                    print(f"Failed to send to {peer}: {e}")
 
     def add_data(self, text, metadata=""):
         compressed, chunk_dict = fractal_compress(text)
