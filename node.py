@@ -31,7 +31,7 @@ class FractalNode:
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
         self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=False)  # Non-daemon for clean exit
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=False)
         self.server_thread.start()
         self.peer_thread = threading.Thread(target=self.discover_peers, daemon=False)
         self.peer_thread.start()
@@ -56,6 +56,7 @@ class FractalNode:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                             s.settimeout(0.1)
                             if s.connect_ex((ip, self.port)) == 0:
+                                print(f"Found peer: {ip} on port {self.port}")
                                 self.peers.add(ip)
                                 self.share_packet("SYNC_REQUEST", ip)
                                 time.sleep(0.5)
@@ -66,7 +67,7 @@ class FractalNode:
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
-                conn.send("ADD <name> <text> | GET <name/hash> | LIST | SYNC | STOP".encode())
+                conn.send("ADD <name> <text> | GET <name/hash> | LIST | PEERS | SYNC | STOP".encode())
             return
         if packet == "LIST":
             if conn:
@@ -105,11 +106,16 @@ class FractalNode:
                 if conn:
                     conn.send(f"Error: Invalid ADD format - {str(e)}".encode())
             return
+        if packet == "PEERS":
+            if conn:
+                peers_list = "\n".join(self.peers) if self.peers else "No peers found."
+                conn.send(f"Peers: {peers_list}".encode())
+            return
         if packet == "SYNC_REQUEST":
             if conn:
                 if sender not in self.peers:
+                    print(f"Adding peer from SYNC_REQUEST: {sender}")
                     self.peers.add(sender)
-                # Send full store back
                 for name, (packed, _, hash_id) in self.data_store.items():
                     self.share_packet(packed, sender)
             return
@@ -123,8 +129,8 @@ class FractalNode:
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
-            # Dedupe by hash_id, not metadata
             if not any(h == hash_id for _, _, h in self.data_store.values()):
+                print(f"Syncing lesson: {metadata} from {sender}")
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
 
@@ -163,6 +169,5 @@ class FractalNode:
             self.server_thread.join(timeout=5)
         self.peer_thread.join(timeout=5)
         self.save_store()
-        # Force exit if threads linger
         if self.server_thread.is_alive() or self.peer_thread.is_alive():
             os._exit(0)
