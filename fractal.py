@@ -2,7 +2,7 @@
 import hashlib
 import base64
 
-def fractal_hash(data):
+def cogito_hash(data):
     return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 def fractal_compress(data, min_chunk=4, max_chunk=32):
