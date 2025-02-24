@@ -4,7 +4,7 @@ import socket
 
 def run_cli(node):
     """Run FractalMind node with CLI."""
-    print(f"FractalMind node started on port {node.tcp_port}. Type 'HELP' for commands.")
+    print(f"FractalMind node started on port {node.port}. Type 'HELP' for commands.")
     while True:
         cmd = input("> ").strip()
         if cmd == "STOP":
