@@ -43,7 +43,7 @@ class FractalNode:
              #       except:
              #           pass
         #    time.sleep(60)
-            
+        
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
@@ -76,7 +76,7 @@ class FractalNode:
                         _, name, text = parts
                         compressed, chunk_dict = fractal_compress(text)
                         hash_id = cogito_hash(text)
-                        packed = pack_packet(compressed, chunk_dict, name)  # Store packed directly
+                        packed = pack_packet(compressed, chunk_dict, name)
                         self.data_store[name] = (packed, name, hash_id)
                         self.share_packet(packed)
                         conn.send(f"Added {name}: {hash_id}".encode())
@@ -92,7 +92,15 @@ class FractalNode:
             if metadata not in self.data_store:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
                 self.share_packet(packed_data)
-                
+
+    def add_data(self, text, metadata=""):
+        compressed, chunk_dict = fractal_compress(text)
+        hash_id = cogito_hash(text)
+        packed = pack_packet(compressed, chunk_dict, metadata)
+        self.data_store[metadata] = (packed, metadata, hash_id)
+        self.share_packet(packed)
+        return hash_id
+        
     def share_packet(self, packet):
         for peer_ip in self.peers:
             try:
