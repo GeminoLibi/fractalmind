@@ -28,22 +28,22 @@ class FractalNode:
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         #threading.Thread(target=self.discover_peers, daemon=True).start()
 
-""""    def discover_peers(self):
-        local_ip = socket.gethostbyname(socket.gethostname())
-        subnet = ".".join(local_ip.split(".")[:-1]) + "."
-        while self.running:
-            for i in range(1, 255):
-                ip = f"{subnet}{i}"
-                if ip != local_ip:
-                    try:
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.settimeout(0.1)
-                            if s.connect_ex((ip, self.port)) == 0:
-                                self.peers.add(ip)
-                    except:
-                        pass
-            time.sleep(60)
-            """"
+#def discover_peers(self):
+     #   local_ip = socket.gethostbyname(socket.gethostname())
+     #   subnet = ".".join(local_ip.split(".")[:-1]) + "."
+     #   while self.running:
+      #      for i in range(1, 255):
+          #      ip = f"{subnet}{i}"
+          #      if ip != local_ip:
+               #     try:
+                    #    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                     #       s.settimeout(0.1)
+                         #   if s.connect_ex((ip, self.port)) == 0:
+                              #  self.peers.add(ip)
+             #       except:
+             #           pass
+        #    time.sleep(60)
+            
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
             if conn:
@@ -76,22 +76,22 @@ class FractalNode:
                         _, name, text = parts
                         compressed, chunk_dict = fractal_compress(text)
                         hash_id = cogito_hash(text)
-                        packet = pack_packet(compressed, chunk_dict, name)
-                        self.data_store[name] = (packet, name, hash_id)
-                        self.share_packet(packet)
+                        packed = pack_packet(compressed, chunk_dict, name)  # Store packed directly
+                        self.data_store[name] = (packed, name, hash_id)
+                        self.share_packet(packed)
                         conn.send(f"Added {name}: {hash_id}".encode())
                     else:
                         conn.send("Error: Use ADD <name> <text> (e.g., ADD Test Hello)".encode())
-            except:
+            except Exception as e:
                 if conn:
-                    conn.send("Error: Invalid ADD format.".encode())
+                    conn.send(f"Error: Invalid ADD format - {str(e)}".encode())
             return
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
             if metadata not in self.data_store:
                 self.data_store[metadata] = (packed_data, metadata, hash_id)
-                self.share_packet(packet)
+                self.share_packet(packed_data)
                 
     def share_packet(self, packet):
         for peer_ip in self.peers:
