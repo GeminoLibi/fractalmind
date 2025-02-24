@@ -3,10 +3,10 @@ import hashlib
 import base64
 
 def cogito_hash(data):
+    """Unique hash for data chunks."""
     return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 def fractal_compress(data, min_chunk=4, max_chunk=32):
-    """Fractal compression with adaptive pattern recognition."""
     compressed = []
     chunk_dict = {}
     i = 0
@@ -38,20 +38,28 @@ def fractal_compress(data, min_chunk=4, max_chunk=32):
     return compressed, chunk_dict
 
 def fractal_decompress(compressed, chunk_dict):
-    """Decompress using chunk dictionary."""
     return "".join(chunk_dict[chunk_id] * count for chunk_id, count in compressed)
 
 def pack_packet(compressed, chunk_dict, metadata):
-    """Pack into a transferable packet."""
     dict_str = "#DICT#" + ";".join(f"{k}:{v}" for k, v in chunk_dict.items())
     seq_str = "#SEQ#" + "|".join(f"{c[0]},{c[1]}" for c in compressed)
     return base64.b64encode(f"{dict_str}{seq_str}#{metadata}".encode()).decode()
 
 def unpack_packet(packed):
-    """Unpack packet into components."""
-    decoded = base64.b64decode(packed).decode()
-    parts = decoded.split("#", 3)
-    chunk_dict = dict(item.split(":") for item in parts[1].split(";"))
-    compressed = [(int(c.split(",")[0]), int(c.split(",")[1])) for c in parts[2].split("|")]
-    metadata = parts[3]
-    return compressed, chunk_dict, metadata
+    try:
+        decoded = base64.b64decode(packed).decode()
+        parts = decoded.split("#", 3)
+        if len(parts) != 4 or parts[0] != "" or parts[1] != "DICT" or parts[2] != "SEQ":
+            raise ValueError("Malformed packet structure")
+        chunk_dict = {}
+        for item in parts[1][5:].split(";"):  # Skip #DICT#
+            if ":" in item:
+                k, v = item.split(":", 1)
+                chunk_dict[int(k)] = v
+            else:
+                raise ValueError(f"Invalid dict entry: {item}")
+        compressed = [(int(c.split(",")[0]), int(c.split(",")[1])) for c in parts[2][5:].split("|")]  # Skip #SEQ#
+        metadata = parts[3]
+        return compressed, chunk_dict, metadata
+    except Exception as e:
+        raise ValueError(f"Failed to unpack packet: {e}")
