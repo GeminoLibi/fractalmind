@@ -154,13 +154,12 @@ class FractalNode:
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
-            if not any(h == hash_id for _, _, h in self.data_store.values()):
-                print(f"Received lesson: {metadata} ({hash_id}) from {sender}")
-                self.data_store[metadata] = (packed_data, metadata, hash_id)
-                peers_copy = self.peers.copy()
-                for peer in peers_copy:
-                    ip, port = peer.split(":")
-                    self.share_packet(packed_data, ip, int(port))
+            print(f"Received lesson: {metadata} ({hash_id}) from {sender}")
+            self.data_store[metadata] = (packed_data, metadata, hash_id)  # Merge always—overwrite by metadata
+            peers_copy = self.peers.copy()
+            for peer in peers_copy:
+                ip, port = peer.split(":")
+                self.share_packet(packed_data, ip, int(port))
 
     def share_packet(self, packet, specific_ip=None, specific_port=None):
         if specific_ip and specific_port:
