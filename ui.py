@@ -4,14 +4,19 @@ import socket
 
 def run_cli(node):
     print(f"FractalMind node started on port {node.port}. Type 'HELP' for commands.")
+    last_cmd = None
     while True:
         cmd = input("> ").strip()
         if cmd == "STOP":
             node.stop()
             print("Node stopped.")
             break
-        response = send_command(node, cmd)
+        response = send_command(node, cmd, last_cmd)
         print(response)
+        if cmd.startswith("ADD ") or cmd.startswith("NAME "):
+            last_cmd = cmd
+        else:
+            last_cmd = None
 
 def run_gui(node):
     root = tk.Tk()
@@ -35,13 +40,17 @@ def run_gui(node):
     
     root.mainloop()
 
-def send_command(node, command):
-    """Send command to node and get response."""
+def send_command(node, command, last_cmd=None):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(5)
         local_ip = socket.gethostbyname(socket.gethostname())
         try:
             s.connect((local_ip, node.port))
+            if last_cmd and last_cmd.startswith("ADD "):
+                command = f"NAME \"{command}\""
+            elif last_cmd and last_cmd.startswith("NAME "):
+                name = last_cmd.split(" ", 1)[1].strip('"')
+                command = f"DATA \"{name}:{command}\""
             s.send(command.encode())
             response = s.recv(4096).decode()
             return response if response else "No response—check command syntax."
