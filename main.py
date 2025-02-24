@@ -1,5 +1,6 @@
 # main.py
 import sys
+import time
 from node import FractalNode
 from lessons import load_initial_lessons
 from ui import run_cli, run_gui
