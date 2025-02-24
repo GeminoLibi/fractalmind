@@ -4,6 +4,7 @@ import threading
 import time
 import pickle
 import os
+import socket
 from fractal import cogito_hash, pack_packet, unpack_packet, fractal_decompress, fractal_compress
 
 class FractalRequestHandler(socketserver.BaseRequestHandler):
@@ -28,8 +29,10 @@ class FractalNode:
     def start(self):
         self.server = socketserver.ThreadingTCPServer(('0.0.0.0', self.port), FractalRequestHandler)
         self.server.node = self
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        threading.Thread(target=self.discover_peers, daemon=True).start()
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.server_thread.start()
+        self.peer_thread = threading.Thread(target=self.discover_peers, daemon=True)
+        self.peer_thread.start()
 
     def load_store(self):
         if os.path.exists(self.store_file):
@@ -52,12 +55,11 @@ class FractalNode:
                             s.settimeout(0.1)
                             if s.connect_ex((ip, self.port)) == 0:
                                 self.peers.add(ip)
-                                # Sync store with new peer
-                                for name, (packed, _, hash_id) in self.data_store.items():
-                                    self.share_packet(packed, ip)
+                                # Request sync from peer
+                                self.share_packet("SYNC_REQUEST", ip)
                     except:
                         pass
-            time.sleep(60)
+            time.sleep(10)  # Faster sync—10s vs. 60s
 
     def process_packet(self, packet, sender, conn=None):
         if packet == "HELP":
@@ -101,6 +103,15 @@ class FractalNode:
                 if conn:
                     conn.send(f"Error: Invalid ADD format - {str(e)}".encode())
             return
+        if packet == "SYNC_REQUEST":
+            if conn and sender not in self.peers:
+                self.peers.add(sender)
+                # Send full store to requesting peer
+                for name, (packed, _, hash_id) in self.data_store.items():
+                    self.share_packet(packed, sender)
+            return
+        if packet == "SYNC_RESPONSE":
+            return  # Placeholder for peer response handling
         parts = packet.split("#", 2)
         if len(parts) == 3:
             hash_id, packed_data, metadata = parts
@@ -111,13 +122,14 @@ class FractalNode:
     def share_packet(self, packet, specific_peer=None):
         target_peers = [specific_peer] if specific_peer else self.peers
         for peer_ip in target_peers:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(1)
-                    s.connect((peer_ip, self.port))
-                    s.send(packet.encode())
-            except:
-                pass
+            if peer_ip:  # Avoid None
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(1)
+                        s.connect((peer_ip, self.port))
+                        s.send(packet.encode())
+                except:
+                    pass
 
     def add_data(self, text, metadata=""):
         compressed, chunk_dict = fractal_compress(text)
@@ -139,4 +151,6 @@ class FractalNode:
         if self.server:
             self.server.shutdown()
             self.server.server_close()
+            self.server_thread.join(timeout=2)  # Wait for server thread
+        self.peer_thread.join(timeout=2)  # Wait for peer thread
         self.save_store()
