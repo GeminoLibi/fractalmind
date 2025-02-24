@@ -52,7 +52,6 @@ class FractalNode:
             subnet = "192.168.1."  # Adjust to your real subnet
         port_range = range(5000, 5011)
         while self.running:
-            # Check existing peers
             peers_copy = self.peers.copy()
             for peer in peers_copy:
                 ip, port = peer.split(":")
@@ -65,7 +64,6 @@ class FractalNode:
                 except:
                     print(f"Lost peer: {peer}")
                     self.peers.remove(peer)
-            # Find new peers
             for i in range(1, 255):
                 ip = f"{subnet}{i}"
                 if ip != local_ip:
@@ -140,7 +138,7 @@ class FractalNode:
                     self.peers.add(sender_ip_port)
                 peers_copy = self.peers.copy()
                 for name, (packed, _, hash_id) in self.data_store.items():
-                    print(f"Sending lesson: {name} ({hash_id}) to {sender}")
+                    print(f"Sending store to {sender} for sync")
                     for peer in peers_copy:
                         ip, port = peer.split(":")
                         self.share_packet(packed, ip, int(port))
@@ -167,8 +165,10 @@ class FractalNode:
     def share_packet(self, packet, specific_ip=None, specific_port=None):
         if specific_ip and specific_port:
             target_peers = [f"{specific_ip}:{specific_port}"]
+            print(f"Sharing packet to {specific_ip}:{specific_port}")
         else:
             target_peers = self.peers.copy()
+            print(f"Sharing packet to peers: {', '.join(target_peers)}")
         for peer in target_peers:
             if peer:
                 ip, port = peer.split(":")
@@ -177,7 +177,6 @@ class FractalNode:
                         s.settimeout(1)
                         s.connect((ip, int(port)))
                         s.send(packet.encode())
-                        print(f"Sent packet to {peer}")
                 except Exception as e:
                     print(f"Failed to send to {peer}: {e}")
 
