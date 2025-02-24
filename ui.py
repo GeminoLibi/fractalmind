@@ -3,7 +3,6 @@ import tkinter as tk
 import socket
 
 def run_cli(node):
-    """Run FractalMind node with CLI."""
     print(f"FractalMind node started on port {node.port}. Type 'HELP' for commands.")
     while True:
         cmd = input("> ").strip()
@@ -15,7 +14,6 @@ def run_cli(node):
         print(response)
 
 def run_gui(node):
-    """Run FractalMind node with GUI."""
     root = tk.Tk()
     root.title("FractalMind Node")
     tk.Label(root, text=f"Node ID: {node.node_id}").pack()
@@ -40,11 +38,11 @@ def run_gui(node):
 def send_command(node, command):
     """Send command to node and get response."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(1)
+        s.settimeout(3)  # Bumped to 3s from 1s
         local_ip = socket.gethostbyname(socket.gethostname())
         try:
-            s.connect((local_ip, node.tcp_port))
+            s.connect((local_ip, node.port))
             s.send(command.encode())
             return s.recv(4096).decode()
         except:
-            return "Error: Node busy."
+            return "Error: Node busy or not responding."
